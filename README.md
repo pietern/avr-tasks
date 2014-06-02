@@ -5,7 +5,7 @@ Multitasking library for the Atmel AVR processor.
 * Preemptive.
 * Uses TIMER0 for scheduler ticks (default: 2ms per tick).
 * Supports as many tasks as you can fit in RAM (default: 256 bytes per task).
-* Currently only supports ATmega328p.
+* Expects to be run on an ATmega328p.
 * For missing features, see _TODO_ below.
 
 ## Example
@@ -16,9 +16,8 @@ the blink rate controlled by two different tasks.
 
 ## Why?
 
-* I want to be able to execute unrelated code while waiting for I/O but be
+* To be able to execute arbitrary code while waiting for I/O but be
   interrupted when I/O _does_ happen.
-* For fun.
 
 ## How?
 
@@ -44,7 +43,7 @@ Links to a few resources I used:
 [2]: http://gcc.gnu.org/wiki/avr-gcc
 [3]: http://www.atmel.com/images/doc0856.pdf
 
-### TODO
+## TODO
 
 * Communication / synchronization between tasks
 * Add task status field for run/sleep/wait/etc...
