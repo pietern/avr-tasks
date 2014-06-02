@@ -6,6 +6,7 @@ Multitasking library for the Atmel AVR processor.
 * Uses TIMER0 for scheduler ticks (default: 2ms per tick).
 * Supports as many tasks as you can fit in RAM (default: 256 bytes per task).
 * Currently only supports ATmega328p.
+* For missing features, see _TODO_ below.
 
 ## Example
 
@@ -42,6 +43,15 @@ Links to a few resources I used:
 [1]: http://www.avrfreaks.net/modules/FreaksArticles/files/14/Multitasking%20on%20an%20AVR.pdf
 [2]: http://gcc.gnu.org/wiki/avr-gcc
 [3]: http://www.atmel.com/images/doc0856.pdf
+
+### TODO
+
+* Communication / synchronization between tasks
+* Add task status field for run/sleep/wait/etc...
+* If waiting for I/O, how will a task be woken up? Likely through ISR not known
+  to `task.c`. Maybe just call `task_yield()` from that handler. Maybe have
+  some condition variable like apparatus to associate event X with task Y
+  waiting for that event.
 
 ## License
 
