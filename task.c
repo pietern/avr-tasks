@@ -73,9 +73,9 @@ static inline void task__push(void) {
   );
 }
 
-// Pop a task's context off of its own stack.
-static inline void task__pop(void) __attribute__ ((always_inline));
-static inline void task__pop(void) {
+// Pop a task's context off of its own stack and resume it.
+static void task__pop(void) __attribute__ ((naked));
+static void task__pop(void) {
   asm volatile(
     // Restore stack pointer from current task struct
     "lds r26, _task__current\n" // Low
@@ -118,11 +118,40 @@ static inline void task__pop(void) {
     "pop r2\n"
     "pop r1\n"
 
-    // Restore status register
+    // Restore status register.
+    //
+    // In theory, if we set the status register directly, and it enabled
+    // interrupts, it is possible for an interrupt to trigger when we're
+    // executing the final instructions of 'task__pop'. If this happens, all
+    // registers will be pushed onto the stack again, but this time the task
+    // hasn't been fully restored yet since we still have the real r0 sitting
+    // on the stack. If this happens a number of times successively, we risk a
+    // stack overflow. To prevent this from happening, we have two paths:
+    //
+    // A) Interrupts should NOT be enabled: the status register is restored, we
+    // pop the real r0, and execute 'ret' to return to the task.
+    //
+    // B) Interrupts should be enabled: the status register is restored without
+    // the interrupt bit set, we pop the real r0, and execute 'reti' to return
+    // to the task AND re-enable interrupts.
+    //
     "pop r0\n"
-    "out 0x3f, r0\n"
+    "sbrs r0, 7\n" // Skip if bit in register set
+    "jmp task_pop_ret\n"
+    "jmp task_pop_reti\n"
 
-    "pop r0\n"
+  "task_pop_ret:\n"
+    "out 0x3f, r0\n" // Restore status register
+    "pop r0\n" // Restore the real r0
+    "ret\n"
+
+  "task_pop_reti:\n"
+    "clt\n" // Clear T in SREG
+    "bld r0, 7\n" // Bit load from T to r0 bit 7 (interrupt bit)
+    "out 0x3f, r0\n" // Restore status register (without interrupt bit set)
+    "pop r0\n" // Restore the real r0
+    "reti\n"
+
   );
 }
 
@@ -316,8 +345,6 @@ static void task__yield_from_timer(void) {
   task__schedule();
 
   task__pop();
-
-  asm volatile ("ret");
 }
 
 // ISR can be naked because the first thing it does is push the current task.
@@ -376,12 +403,13 @@ void task_start(void) {
     _task__current = _task__user;
   }
 
-  task__pop();
+  // Global interrupt bit will be enabled when task is popped.
+  asm volatile ("cli");
 
   // Enable interrupt on OCR0A match
   TIMSK0 |= _BV(OCIE0A);
 
-  asm volatile ("ret");
+  task__pop();
 }
 
 // Yield execution to any other schedulable task.
@@ -392,8 +420,6 @@ void task_yield(void) {
   task__schedule();
 
   task__pop();
-
-  asm volatile ("ret");
 }
 
 // Make current task sleep for specified number of ticks.
