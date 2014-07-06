@@ -252,13 +252,16 @@ static void * task__internal_initialize(void *sp, task_fn fn, void *data) {
 
 // Creates a task for the specified function.
 task_t *task__internal_create(task_fn fn, void *data) {
-  static void *start = (void *)(RAMEND - sizeof(task_t) + 1);
+  static void *start = (void *)RAMEND;
   void *sp;
   task_t *t;
 
-  start -= 0x100; // Should protect this against underflow..
-  sp = start-1;
-  t = start;
+  // Should protect this against underflow.
+  start -= 0x100;
+
+  // Stack grows down, don't overwrite first byte of task struct.
+  t = start - sizeof(task_t);
+  sp = (void *)t - 1;
 
   t->sp = task__internal_initialize(sp, fn, data);
   t->delay = 0;
