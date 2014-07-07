@@ -290,15 +290,8 @@ static void task__schedule() {
       continue;
     }
 
-    // Tie the current head to the current tail.
-    QUEUE_NEXT_PREV(&_tasks) = QUEUE_PREV(&_tasks);
-    QUEUE_PREV_NEXT(&_tasks) = QUEUE_NEXT(&_tasks);
-
-    // Make q the new tail and q->next the new head.
-    QUEUE_PREV(&_tasks) = q;
-    QUEUE_NEXT(&_tasks) = QUEUE_NEXT(q);
-    QUEUE_PREV_NEXT(&_tasks) = &_tasks;
-    QUEUE_NEXT_PREV(&_tasks) = &_tasks;
+    // Make [head..q] the new tail, so that q->next can be scheduled next.
+    QUEUE_ROTATE(&_tasks, q);
 
     // Task t can be scheduled.
     _task__current = t;

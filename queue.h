@@ -91,4 +91,15 @@ typedef void *QUEUE[2];
   }                                                                           \
   while (0)
 
+// Make head through q the new tail, q->next through tail the new head.
+#define QUEUE_ROTATE(h, q)                                                    \
+  do {                                                                        \
+    QUEUE_NEXT_PREV(h) = QUEUE_PREV(h);                                       \
+    QUEUE_PREV_NEXT(h) = QUEUE_NEXT(h);                                       \
+    QUEUE_PREV(h) = (q);                                                      \
+    QUEUE_NEXT(h) = QUEUE_NEXT(q);                                            \
+    QUEUE_PREV_NEXT(h) = (h);                                                 \
+    QUEUE_NEXT_PREV(h) = (h);                                                 \
+  } while (0);
+
 #endif /* QUEUE_H_ */
