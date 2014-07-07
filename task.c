@@ -11,8 +11,11 @@ static task_t *_task__current = 0;
 // This task is scheduled when no other task can be scheduled.
 static task_t *_task__idle = 0;
 
-// Queue with schedulable tasks.
-static QUEUE _tasks;
+// Queue with runnable tasks.
+static QUEUE _tasks__runnable;
+
+// Queue with suspended tasks.
+static QUEUE _tasks__suspended;
 
 // Push a task's context onto its own stack.
 static inline void task__push(void) __attribute__ ((always_inline));
@@ -274,7 +277,7 @@ task_t *task__internal_create(task_fn fn, void *data) {
 task_t *task_create(task_fn fn, void *data) {
   task_t *t = task__internal_create(fn, data);
 
-  QUEUE_INSERT_TAIL(&_tasks, &t->member);
+  QUEUE_INSERT_TAIL(&_tasks__runnable, &t->member);
 
   return t;
 }
@@ -283,15 +286,11 @@ static void task__schedule() {
   QUEUE *q;
   task_t *t;
 
-  QUEUE_FOREACH(q, &_tasks) {
+  QUEUE_FOREACH(q, &_tasks__runnable) {
     t = QUEUE_DATA(q, task_t, member);
 
-    if (t->delay > 0) {
-      continue;
-    }
-
     // Make [head..q] the new tail, so that q->next can be scheduled next.
-    QUEUE_ROTATE(&_tasks, q);
+    QUEUE_ROTATE(&_tasks__runnable, q);
 
     // Task t can be scheduled.
     _task__current = t;
@@ -306,14 +305,23 @@ static void task__schedule() {
 }
 
 static void task__tick() {
-  QUEUE *q;
+  QUEUE *q, *r;
   task_t *t;
 
-  QUEUE_FOREACH(q, &_tasks) {
+  q = QUEUE_NEXT(&_tasks__suspended);
+  r = 0;
+  for (; q != &_tasks__suspended; q = r) {
+    // Save pointer to next element so q can be
+    // removed without breaking iteration.
+    r = QUEUE_NEXT(q);
     t = QUEUE_DATA(q, task_t, member);
 
     if (t->delay) {
       t->delay--;
+    }
+
+    if (t->delay == 0) {
+      task_wakeup(t);
     }
   }
 }
@@ -375,7 +383,8 @@ static void task__create_idle_task() {
 }
 
 void task_initialize(void) {
-  QUEUE_INIT(&_tasks);
+  QUEUE_INIT(&_tasks__runnable);
+  QUEUE_INIT(&_tasks__suspended);
 
   task__setup_timer();
   task__create_idle_task();
@@ -406,8 +415,36 @@ void task_yield(void) {
   task__pop();
 }
 
+// Suspend task until it is woken up explicitly.
+void task_suspend(void) {
+  uint8_t sreg = SREG;
+
+  asm volatile ("cli");
+
+  QUEUE *q = &_task__current->member;
+  QUEUE_REMOVE(q);
+  QUEUE_INSERT_TAIL(&_tasks__suspended, q);
+
+  task_yield();
+
+  SREG = sreg;
+}
+
+// Wake up task.
+void task_wakeup(task_t *t) {
+  uint8_t sreg = SREG;
+
+  asm volatile ("cli");
+
+  QUEUE *q = t->member;
+  QUEUE_REMOVE(q);
+  QUEUE_INSERT_TAIL(&_tasks__runnable, q);
+
+  SREG = sreg;
+}
+
 // Make current task sleep for specified number of ticks.
 void task_sleep(uint16_t ms) {
   _task__current->delay = ms / MS_PER_TICK;
-  task_yield();
+  task_suspend();
 }

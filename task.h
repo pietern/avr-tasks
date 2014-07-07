@@ -30,6 +30,12 @@ void task_start(void);
 // Yield control from current task.
 void task_yield(void);
 
+// Suspend task until it is woken up explicitly.
+void task_suspend(void);
+
+// Wake up task.
+void task_wakeup(task_t *t);
+
 // Sleep current task for specified number of milliseconds.
 void task_sleep(uint16_t ms);
 
