@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "queue.h"
+
 #define MS_PER_TICK 2
 
 typedef void (*task_fn)(void *);
@@ -13,7 +15,7 @@ struct task_s {
   void *sp; // Stack pointer this task can be resumed from.
   uint16_t delay; // Ticks until task can be scheduled again.
 
-  task_t *next;
+  QUEUE member;
 };
 
 // Initialize internal structures, tick timer, etc.

@@ -7,13 +7,12 @@
 // May only be changed by schedule routine.
 static task_t *_task__current = 0;
 
-// Pointer to user task.
-// Since user tasks are linked, it doesn't matter which one this points to.
-static task_t *_task__user = 0;
-
 // Pointer to idle task.
 // This task is scheduled when no other task can be scheduled.
 static task_t *_task__idle = 0;
+
+// Queue with schedulable tasks.
+static QUEUE _tasks;
 
 // Push a task's context onto its own stack.
 static inline void task__push(void) __attribute__ ((always_inline));
@@ -265,7 +264,7 @@ task_t *task__internal_create(task_fn fn, void *data) {
 
   t->sp = task__internal_initialize(sp, fn, data);
   t->delay = 0;
-  t->next = 0;
+  QUEUE_INIT(&t->member);
 
   return t;
 }
@@ -275,45 +274,36 @@ task_t *task__internal_create(task_fn fn, void *data) {
 task_t *task_create(task_fn fn, void *data) {
   task_t *t = task__internal_create(fn, data);
 
-  if (_task__user == 0) {
-    _task__user = t;
-    t->next = t;
-  } else {
-    t->next = _task__user->next;
-    _task__user->next = t;
-  }
+  QUEUE_INSERT_TAIL(&_tasks, &t->member);
 
   return t;
 }
 
 static void task__schedule() {
-  task_t *t = _task__user;
+  QUEUE *q;
+  task_t *t;
 
-  while (1) {
-    // Ignore sleeping task
+  QUEUE_FOREACH(q, &_tasks) {
+    t = QUEUE_DATA(q, task_t, member);
+
     if (t->delay > 0) {
-      goto next_task;
+      continue;
     }
 
-    // Ignore current task
-    if (t == _task__current) {
-      goto next_task;
-    }
+    // Tie the current head to the current tail.
+    QUEUE_NEXT_PREV(&_tasks) = QUEUE_PREV(&_tasks);
+    QUEUE_PREV_NEXT(&_tasks) = QUEUE_NEXT(&_tasks);
+
+    // Make q the new tail and q->next the new head.
+    QUEUE_PREV(&_tasks) = q;
+    QUEUE_NEXT(&_tasks) = QUEUE_NEXT(q);
+    QUEUE_PREV_NEXT(&_tasks) = &_tasks;
+    QUEUE_NEXT_PREV(&_tasks) = &_tasks;
 
     // Task t can be scheduled.
     _task__current = t;
 
-    // Cycle _task__user to avoid starving tasks at the end of the list.
-    _task__user = t;
-
     return;
-
-  next_task:
-    if (t->next == _task__user) {
-      break;
-    }
-
-    t = t->next;
   }
 
   // Nothing to schedule, go to sleep.
@@ -323,18 +313,15 @@ static void task__schedule() {
 }
 
 static void task__tick() {
-  task_t *t = _task__user;
+  QUEUE *q;
+  task_t *t;
 
-  while (1) {
+  QUEUE_FOREACH(q, &_tasks) {
+    t = QUEUE_DATA(q, task_t, member);
+
     if (t->delay) {
       t->delay--;
     }
-
-    if (t->next == _task__user) {
-      break;
-    }
-
-    t = t->next;
   }
 }
 
@@ -391,26 +378,27 @@ static void task__idle(void *unused) {
 }
 
 static void task__create_idle_task() {
-  _task__idle = task_create(task__idle, 0);
+  _task__idle = task__internal_create(task__idle, 0);
 }
 
 void task_initialize(void) {
+  QUEUE_INIT(&_tasks);
+
   task__setup_timer();
   task__create_idle_task();
 }
 
 // Call this function to start task execution.
-// Returns into the task pointed to by _task__current, not its caller.
+// Never returns.
 void task_start(void) {
-  if (_task__current == 0) {
-    _task__current = _task__user;
-  }
-
   // Global interrupt bit will be enabled when task is popped.
   asm volatile ("cli");
 
   // Enable interrupt on OCR0A match
   TIMSK0 |= _BV(OCIE0A);
+
+  // Schedule next task to run.
+  task__schedule();
 
   task__pop();
 }
