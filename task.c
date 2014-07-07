@@ -12,10 +12,16 @@ static task_t *_task__current = 0;
 static task_t *_task__idle = 0;
 
 // Queue with runnable tasks.
+// Holds tasks that may be scheduled immediately.
 static QUEUE _tasks__runnable;
 
 // Queue with suspended tasks.
+// Holds tasks that called "task_suspend".
 static QUEUE _tasks__suspended;
+
+// Queue with sleeping tasks.
+// Holds tasks that called "task_sleep".
+static QUEUE _tasks__sleeping;
 
 // Push a task's context onto its own stack.
 static inline void task__push(void) __attribute__ ((always_inline));
@@ -308,9 +314,9 @@ static void task__tick() {
   QUEUE *q, *r;
   task_t *t;
 
-  q = QUEUE_NEXT(&_tasks__suspended);
+  q = QUEUE_NEXT(&_tasks__sleeping);
   r = 0;
-  for (; q != &_tasks__suspended; q = r) {
+  for (; q != &_tasks__sleeping; q = r) {
     // Save pointer to next element so q can be
     // removed without breaking iteration.
     r = QUEUE_NEXT(q);
@@ -385,6 +391,7 @@ static void task__create_idle_task() {
 void task_initialize(void) {
   QUEUE_INIT(&_tasks__runnable);
   QUEUE_INIT(&_tasks__suspended);
+  QUEUE_INIT(&_tasks__sleeping);
 
   task__setup_timer();
   task__create_idle_task();
@@ -415,19 +422,23 @@ void task_yield(void) {
   task__pop();
 }
 
-// Suspend task until it is woken up explicitly.
-void task_suspend(void) {
+void task__suspend(QUEUE *h) {
   uint8_t sreg = SREG;
 
   asm volatile ("cli");
 
   QUEUE *q = &_task__current->member;
   QUEUE_REMOVE(q);
-  QUEUE_INSERT_TAIL(&_tasks__suspended, q);
+  QUEUE_INSERT_TAIL(h, q);
 
   task_yield();
 
   SREG = sreg;
+}
+
+// Suspend task until it is woken up explicitly.
+void task_suspend() {
+  task__suspend(&_tasks__suspended);
 }
 
 // Wake up task.
@@ -446,5 +457,5 @@ void task_wakeup(task_t *t) {
 // Make current task sleep for specified number of ticks.
 void task_sleep(uint16_t ms) {
   _task__current->delay = ms / MS_PER_TICK;
-  task_suspend();
+  task__suspend(&_tasks__sleeping);
 }
