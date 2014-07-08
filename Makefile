@@ -1,5 +1,5 @@
 PRG            = example
-OBJ            = example.o task.o
+OBJ            = example.o task.o mutex.o
 MCU_TARGET     = atmega328
 OPTIMIZE       = -O2
 

@@ -437,8 +437,12 @@ void task__suspend(QUEUE *h) {
 }
 
 // Suspend task until it is woken up explicitly.
-void task_suspend() {
-  task__suspend(&_tasks__suspended);
+void task_suspend(QUEUE *h) {
+  if (h == 0) {
+    h = &_tasks__suspended;
+  }
+
+  task__suspend(h);
 }
 
 // Wake up task.

@@ -31,7 +31,9 @@ void task_start(void);
 void task_yield(void);
 
 // Suspend task until it is woken up explicitly.
-void task_suspend(void);
+// The task is added to the tail of the queue pointed to by q. If q is NULL,
+// it is added to the system wide queue for suspended tasks.
+void task_suspend(QUEUE *h);
 
 // Wake up task.
 void task_wakeup(task_t *t);
