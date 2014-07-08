@@ -447,7 +447,7 @@ void task_wakeup(task_t *t) {
 
   asm volatile ("cli");
 
-  QUEUE *q = t->member;
+  QUEUE *q = &t->member;
   QUEUE_REMOVE(q);
   QUEUE_INSERT_TAIL(&_tasks__runnable, q);
 
