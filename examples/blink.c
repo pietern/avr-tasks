@@ -1,25 +1,22 @@
 #include <avr/io.h>
+#include <stddef.h>
 
 #include "task.h"
 
 volatile uint8_t delay_ms = 0;
 
-void blink_task(void *data) {
-  volatile uint8_t *ms = data;
-
+void blink_task(void *unused) {
   while (1) {
-    task_sleep(*ms);
+    task_sleep(delay_ms);
     PORTB ^= _BV(PB5);
   }
 }
 
-void delay_task(void *data) {
-  volatile uint8_t *ms = data;
-
+void delay_task(void *unused) {
   while (1) {
-    *ms = 50;
+    delay_ms = 50;
     task_sleep(1000);
-    *ms = 200;
+    delay_ms = 200;
     task_sleep(1000);
   }
 }
@@ -30,8 +27,8 @@ int main() {
 
   task_initialize();
 
-  task_create(blink_task, (void *)&delay_ms);
-  task_create(delay_task, (void *)&delay_ms);
+  task_create(blink_task, NULL);
+  task_create(delay_task, NULL);
 
   task_start();
 
