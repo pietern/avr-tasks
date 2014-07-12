@@ -7,14 +7,45 @@
 
 #define HMC5883L_ADDRESS (0x1e)
 
+void hmc5883l_init(void) {
+  uint8_t b0[2] = { 0x0, _BV(4) };
+  uint8_t b1[2] = { 0x1, _BV(6) };
+  uint8_t b2[2] = { 0x2, 0 };
+  int8_t rv;
+
+  // Initialize for continuous measurement at 15Hz
+  rv = i2c_write(HMC5883L_ADDRESS, b0, sizeof(b0));
+  if (rv < 0) return;
+  rv = i2c_write(HMC5883L_ADDRESS, b1, sizeof(b1));
+  if (rv < 0) return;
+  rv = i2c_write(HMC5883L_ADDRESS, b2, sizeof(b2));
+  if (rv < 0) return;
+}
+
 void hmc5883l_measure(FILE *uart) {
+  static char reinitialize = 1;
   uint8_t b3[1] = { 0x3 };
   uint8_t data[6];
   int16_t axis[3];
+  int8_t rv;
+
+  if (reinitialize) {
+    hmc5883l_init();
+    reinitialize = 0;
+  }
 
   // Read measurement
-  i2c_write(HMC5883L_ADDRESS, b3, 1);
-  i2c_read(HMC5883L_ADDRESS, data, 6);
+  rv = i2c_write(HMC5883L_ADDRESS, b3, sizeof(b3));
+  if (rv < 0) {
+    reinitialize = 1;
+    return;
+  }
+
+  rv = i2c_read(HMC5883L_ADDRESS, data, sizeof(data));
+  if (rv < 0) {
+    reinitialize = 1;
+    return;
+  }
 
   // Post-process measurement
   axis[0 /* X */] = (data[0] << 8) | data[1];
@@ -25,15 +56,7 @@ void hmc5883l_measure(FILE *uart) {
 }
 
 void hmc5883l_task(void *unused) {
-  uint8_t b0[2] = { 0x0, _BV(4) };
-  uint8_t b1[2] = { 0x1, _BV(6) };
-  uint8_t b2[2] = { 0x2, 0 };
   FILE uart = FDEV_SETUP_STREAM(uart_putc, uart_getc, _FDEV_SETUP_RW);
-
-  // Initialize for continuous measurement at 15Hz
-  i2c_write(HMC5883L_ADDRESS, b0, 2);
-  i2c_write(HMC5883L_ADDRESS, b1, 2);
-  i2c_write(HMC5883L_ADDRESS, b2, 2);
 
   while (1) {
     uint8_t t1, t2, ms;
@@ -52,7 +75,6 @@ void hmc5883l_task(void *unused) {
 int main() {
   i2c_init();
   uart_init();
-
   task_init();
 
   task_create(hmc5883l_task, NULL);
