@@ -44,4 +44,7 @@ void task_wakeup(task_t *t);
 // Sleep current task for specified number of milliseconds.
 void task_sleep(uint16_t ms);
 
+// Return millisecond counter value.
+uint8_t task_ms(void);
+
 #endif

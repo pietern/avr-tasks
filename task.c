@@ -23,6 +23,9 @@ static QUEUE _tasks__suspended;
 // Holds tasks that called "task_sleep".
 static QUEUE _tasks__sleeping;
 
+// Millisecond counter maintained by the task timer.
+static uint8_t _task_ms = 0;
+
 // Push a task's context onto its own stack.
 static inline void task__push(void) __attribute__ ((always_inline));
 static inline void task__push(void) {
@@ -314,6 +317,8 @@ static void task__tick() {
   QUEUE *q, *r;
   task_t *t;
 
+  _task_ms += MS_PER_TICK;
+
   q = QUEUE_NEXT(&_tasks__sleeping);
   r = 0;
   for (; q != &_tasks__sleeping; q = r) {
@@ -483,4 +488,11 @@ void task_wakeup(task_t *t) {
 void task_sleep(uint16_t ms) {
   _task__current->delay = ms / MS_PER_TICK;
   task__suspend(&_tasks__sleeping);
+}
+
+// Return millisecond counter value.
+// This value overflows every 256 milliseconds. It is up to the caller to take
+// this into account when doing arithmetic on multiple samples.
+uint8_t task_ms(void) {
+  return _task_ms;
 }
