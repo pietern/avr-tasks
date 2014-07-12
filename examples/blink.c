@@ -25,7 +25,7 @@ int main() {
   // PB5 (pin 13) is an output pin
   DDRB |= _BV(PB5);
 
-  task_initialize();
+  task_init();
 
   task_create(blink_task, NULL);
   task_create(delay_task, NULL);

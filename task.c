@@ -409,7 +409,7 @@ static void task__create_idle_task() {
   _task__idle = task__internal_create(task__idle, 0);
 }
 
-void task_initialize(void) {
+void task_init(void) {
   QUEUE_INIT(&_tasks__runnable);
   QUEUE_INIT(&_tasks__suspended);
   QUEUE_INIT(&_tasks__sleeping);

@@ -31,7 +31,7 @@ int main() {
 
   mutex_init(&m);
 
-  task_initialize();
+  task_init();
 
   task_create(blink_task, NULL);
 

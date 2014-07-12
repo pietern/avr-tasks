@@ -18,7 +18,7 @@ void echo_task(void *unused) {
 int main() {
   uart_init();
 
-  task_initialize();
+  task_init();
 
   task_create(echo_task, NULL);
 

@@ -19,7 +19,7 @@ struct task_s {
 };
 
 // Initialize internal structures, tick timer, etc.
-void task_initialize(void);
+void task_init(void);
 
 // Creates a task for the specified function.
 task_t *task_create(task_fn fn, void *data);

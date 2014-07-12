@@ -53,7 +53,7 @@ int main() {
   i2c_init();
   uart_init();
 
-  task_initialize();
+  task_init();
 
   task_create(hmc5883l_task, NULL);
 
