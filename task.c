@@ -381,6 +381,22 @@ static void task__idle(void *unused) {
   while (1) {
     // ZZZzzz...
     asm volatile ("sleep");
+
+    // The processor wakes up from sleep to handle interrupts. In the case of
+    // this interrupt being the task timer, the task scheduler will try and
+    // schedule the next runnable task. In the case of some other interrupt
+    // firing, it is possible that the handler wakes up a suspended task. If
+    // the idle task only loops on the sleep instruction, this newly woken up
+    // task would have to wait until the next timer tick to be scheduled.
+    //
+    // To allow a newly woken up task to be run as soon as possible, we check
+    // if there are any runnable tasks here, and yield if so.
+    //
+    cli();
+    if (!QUEUE_EMPTY(&_tasks__runnable)) {
+      task_yield();
+    }
+    sei();
   }
 }
 
