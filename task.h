@@ -30,6 +30,9 @@ void task_start(void);
 // Yield control from current task.
 void task_yield(void);
 
+// Return pointer to current task.
+task_t *task_current(void);
+
 // Suspend task until it is woken up explicitly.
 // The task is added to the tail of the queue pointed to by q. If q is NULL,
 // it is added to the system wide queue for suspended tasks.

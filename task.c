@@ -422,6 +422,11 @@ void task_yield(void) {
   task__pop();
 }
 
+// Return pointer to current task.
+task_t *task_current(void) {
+  return _task__current;
+}
+
 void task__suspend(QUEUE *h) {
   uint8_t sreg = SREG;
 
