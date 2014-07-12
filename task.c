@@ -401,7 +401,7 @@ void task_initialize(void) {
 // Never returns.
 void task_start(void) {
   // Global interrupt bit will be enabled when task is popped.
-  asm volatile ("cli");
+  cli();
 
   // Enable interrupt on OCR0A match
   TIMSK0 |= _BV(OCIE0A);
@@ -430,7 +430,7 @@ task_t *task_current(void) {
 void task__suspend(QUEUE *h) {
   uint8_t sreg = SREG;
 
-  asm volatile ("cli");
+  cli();
 
   QUEUE *q = &_task__current->member;
   QUEUE_REMOVE(q);
@@ -454,7 +454,7 @@ void task_suspend(QUEUE *h) {
 void task_wakeup(task_t *t) {
   uint8_t sreg = SREG;
 
-  asm volatile ("cli");
+  cli();
 
   QUEUE *q = &t->member;
   QUEUE_REMOVE(q);
