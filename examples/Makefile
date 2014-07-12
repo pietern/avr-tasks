@@ -1,4 +1,4 @@
-OBJS           = ../task.o ../mutex.o ../uart.o
+OBJS           = ../task.o ../mutex.o ../uart.o ../i2c.o
 MCU_TARGET     = atmega328
 OPTIMIZE       = -O2
 
