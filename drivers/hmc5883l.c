@@ -13,22 +13,26 @@ int8_t hmc5883l_configure(uint8_t a, uint8_t b, uint8_t m) {
   uint8_t b2[2] = { 0x2, m };
   int8_t rv;
 
+  i2c_open();
+
   rv = i2c_write(HMC5883L_ADDRESS, b0, sizeof(b0));
   if (rv < 0) {
-    return rv;
+    goto done;
   }
 
   rv = i2c_write(HMC5883L_ADDRESS, b1, sizeof(b1));
   if (rv < 0) {
-    return rv;
+    goto done;
   }
 
   rv = i2c_write(HMC5883L_ADDRESS, b2, sizeof(b2));
   if (rv < 0) {
-    return rv;
+    goto done;
   }
 
-  return 0;
+done:
+  i2c_close();
+  return rv;
 }
 
 // Read raw values from sensor.
@@ -40,21 +44,25 @@ int8_t hmc5883l_read(int16_t axis[3]) {
   uint8_t data[6];
   int8_t rv;
 
+  i2c_open();
+
   rv = i2c_write(HMC5883L_ADDRESS, b3, sizeof(b3));
   if (rv < 0) {
-    return rv;
+    goto done;
   }
 
   rv = i2c_read(HMC5883L_ADDRESS, data, sizeof(data));
   if (rv < 0) {
-    return rv;
+    goto done;
   }
 
   axis[0 /* X */] = (data[0] << 8) | data[1];
   axis[2 /* Z */] = (data[2] << 8) | data[3];
   axis[1 /* Y */] = (data[4] << 8) | data[5];
 
-  return 0;
+done:
+  i2c_close();
+  return rv;
 }
 
 // Initialize sensor struct.
