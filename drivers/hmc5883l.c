@@ -70,12 +70,12 @@ void hmc5883l_init(hmc5883l_t *h) {
   int8_t i;
 
   for (i = 0; i < 3; i++) {
-    h->cali_offset[0] = 0;
-    h->cali_scale[0] = 1.0;
+    h->cali_offset[i] = 0;
+    h->cali_scale[i] = 1.0;
 
-    h->extra_offset[0] = 0;
-    h->extra_scale_pos[0] = 1.0;
-    h->extra_scale_neg[1] = 1.0;
+    h->extra_offset[i] = 0;
+    h->extra_scale_pos[i] = 1.0;
+    h->extra_scale_neg[i] = 1.0;
   }
 }
 
