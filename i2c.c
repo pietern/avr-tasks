@@ -62,6 +62,14 @@ void i2c_init(void) {
   SREG = sreg;
 }
 
+void i2c_open(void) {
+  // No-op for now.
+}
+
+void i2c_close(void) {
+  TWCR = TWCR_STOP;
+}
+
 // Prepares I2C operation and suspends task to wait for completion.
 static int8_t i2c__io(uint8_t address, uint8_t *buf, uint8_t len) {
   struct i2c_op_s op;
@@ -219,7 +227,23 @@ ISR(TWI_vect, ISR_BLOCK) {
   return;
 
 done:
-  TWCR = TWCR_STOP;
+  // From the ATmega328p datasheet (section 21.9.2):
+  //
+  //   The TWINT Flag must be cleared by software by writing a logic one to it.
+  //   Note that this flag is not automatically cleared by hardware when
+  //   executing the interrupt routine. Also note that clearing this flag
+  //   starts the operation of the TWI, so all accesses to the TWI Address
+  //   Register (TWAR), TWI Status Register (TWSR), and TWI Data Register
+  //   (TWDR) must be complete before clearing this flag.
+  //
+  // It is up to the code that uses I2C functions whether it wants to bundle
+  // multiple operations in one atomic set or not (this is done using repeated
+  // start). This means that TWINT cannot be cleared here. However, the
+  // interrupt handler cannot be allowed to fire again, so we clear TWIE to
+  // disable I2C interrupts altogether.
+  //
+  TWCR = TWCR_DEFAULT & ~_BV(TWIE);
+
   task_wakeup(i2c_task);
   return;
 }
