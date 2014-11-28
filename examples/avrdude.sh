@@ -4,15 +4,19 @@ set -e
 
 if [ -z "$1" ]
 then
-  echo "Usage: $0 example.hex"
+  echo "Usage: $0 DIR"
   exit 1
 fi
 
-make $1
+pushd $1
+make
+popd
+
+hex=$(echo $1/*.hex)
 
 avrdude -q -V -D \
   -p atmega328p \
   -c arduino \
   -b 115200 \
   -P /dev/ttyUSB0 \
-  -U flash:w:$1:i
+  -U flash:w:${hex}:i
