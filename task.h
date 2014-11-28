@@ -6,6 +6,8 @@
 #include "queue.h"
 
 #define MS_PER_TICK 2
+#define US_PER_TICK 2000
+#define US_PER_MICROTICK 16
 
 typedef void (*task_fn)(void *);
 
@@ -46,5 +48,8 @@ void task_sleep(uint16_t ms);
 
 // Return millisecond counter value.
 uint8_t task_ms(void);
+
+// Return microsecond counter value.
+uint16_t task_us(void);
 
 #endif
