@@ -1,4 +1,3 @@
-OBJS           = ../task.o ../mutex.o ../uart.o ../i2c.o
 MCU_TARGET     = atmega328
 OPTIMIZE       = -O2
 
@@ -11,7 +10,7 @@ CC             = avr-gcc
 
 # Override is only needed by avr-lib build system.
 
-override CFLAGS        = -g -Wall $(OPTIMIZE) -mmcu=$(MCU_TARGET) $(DEFS) -I../
+override CFLAGS        = -g -Wall $(OPTIMIZE) -mmcu=$(MCU_TARGET) $(DEFS) -I../../
 override LDFLAGS       =
 override ASFLAGS       = -Wall -mmcu=$(MCU_TARGET) $(DEFS)
 
