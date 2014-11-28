@@ -10,7 +10,7 @@ Multitasking library for the Atmel AVR processor.
 
 ## Example
 
-An example can be found in [blink.c](examples/blink.c).
+An example can be found in [blink.c](examples/blink/blink.c).
 This program blinks the LED connected to pin 13, with the actual blinking and
 the blink rate controlled by two different tasks.
 
