@@ -8,12 +8,14 @@
 #define _B(x, on) ((on) * _BV(x))
 
 // Static variables for a transmitter.
-static task_t *tx_task;
-static char tx_buf;
+static task_t *tx_task = NULL;
+static const uint8_t *tx_buf;
+static uint8_t tx_count;
 
 // Static variables for a receiver.
-static task_t *rx_task;
-static char rx_buf;
+static task_t *rx_task = NULL;
+static uint8_t *rx_buf;
+static uint8_t rx_count;
 
 // Register descriptions as documented in the ATmega328p datasheet.
 //
@@ -83,24 +85,26 @@ void uart_init(void) {
 
 // Transmit interrupt handler.
 ISR(USART_UDRE_vect) {
-  UDR0 = tx_buf;
-
-  // Disable USART Data Register Empty Interrupt
-  UCSR0B &= ~_B(UDRIE0, 1);
-  task_wakeup(tx_task);
+  UDR0 = tx_buf[0];
+  if (--tx_count > 0) {
+    tx_buf++;
+  } else {
+    // Disable USART Data Register Empty Interrupt
+    UCSR0B &= ~_B(UDRIE0, 1);
+    task_wakeup(tx_task);
+  }
 }
 
-// Transmit character over USART.
-// Highly inefficient because of excessive context switching, but good enough
-// for low throughput transmission at low baud rates.
-int uart_putc(char c, FILE *unused) {
+// Write data to UART.
+int uart_write(const void *buf, size_t count) {
   uint8_t sreg;
 
   sreg = SREG;
   cli();
 
   tx_task = task_current();
-  tx_buf = c;
+  tx_buf = buf;
+  tx_count = count;
 
   // Enable USART Data Register Empty Interrupt
   // It is disabled by the interrupt handler when done.
@@ -111,29 +115,31 @@ int uart_putc(char c, FILE *unused) {
 
   SREG = sreg;
 
-  return 0;
+  return count;
 }
 
 // Receive interrupt handler.
 ISR(USART_RX_vect) {
-  rx_buf = UDR0;
-
-  // Disable USART RX Complete Interrupt
-  UCSR0B &= ~_B(RXCIE0, 1);
-  task_wakeup(rx_task);
+  rx_buf[0] = UDR0;
+  if (--rx_count > 0) {
+    rx_buf++;
+  } else {
+    // Disable USART RX Complete Interrupt
+    UCSR0B &= ~_B(RXCIE0, 1);
+    task_wakeup(rx_task);
+  }
 }
 
-// Receive character over USART.
-// Highly inefficient because of excessive context switching, but good enough
-// for low throughput receival at low baud rates.
-int uart_getc(FILE *unused) {
+// Read data from UART.
+int uart_read(void *buf, size_t count) {
   uint8_t sreg;
-  char c;
 
   sreg = SREG;
   cli();
 
   rx_task = task_current();
+  rx_buf = buf;
+  rx_count = count;
 
   // Enable USART RX Complete Interrupt
   // It is disabled by the interrupt handler when done.
@@ -142,9 +148,20 @@ int uart_getc(FILE *unused) {
   // Task is woken up by the interrupt handler when done.
   task_suspend(NULL);
 
-  c = rx_buf;
-
   SREG = sreg;
 
+  return count;
+}
+
+// Write character to UART.
+int uart_putc(char c, FILE *unused) {
+  uart_write(&c, 1);
+  return 0;
+}
+
+// Read character from UART.
+int uart_getc(FILE *unused) {
+  char c;
+  uart_read(&c, 1);
   return c;
 }
