@@ -22,4 +22,8 @@ int8_t i2c_read(uint8_t address, uint8_t *buf, uint8_t len);
 
 int8_t i2c_write(uint8_t address, uint8_t *buf, uint8_t len);
 
+int8_t i2c_read_from(uint8_t address, uint8_t reg, uint8_t *buf, uint8_t len);
+
+int8_t i2c_write_to(uint8_t address, uint8_t reg, uint8_t *buf, uint8_t len);
+
 #endif

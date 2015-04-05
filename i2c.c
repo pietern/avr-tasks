@@ -118,6 +118,22 @@ int8_t i2c_write(uint8_t address, uint8_t *buf, uint8_t len) {
   return i2c_writev(address, &iov, 1);
 }
 
+int8_t i2c_read_from(uint8_t address, uint8_t reg, uint8_t *buf, uint8_t len) {
+  int8_t rv;
+
+  rv = i2c_write(address, &reg, sizeof(reg));
+  if (rv < 0) {
+    return rv;
+  }
+
+  return i2c_read(address, buf, len);
+}
+
+int8_t i2c_write_to(uint8_t address, uint8_t reg, uint8_t *buf, uint8_t len) {
+  struct i2c_iovec_s iov[2] = { { &reg, 1 }, { buf, len } };
+  return i2c_writev(address, (struct i2c_iovec_s *) &iov, 2);
+}
+
 ISR(TWI_vect, ISR_BLOCK) {
   uint8_t status;
 
