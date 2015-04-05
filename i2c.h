@@ -1,7 +1,9 @@
 #ifndef _I2C_H
 #define _I2C_H
 
+#ifndef I2C_FREQ
 #define I2C_FREQ 100000
+#endif
 
 struct i2c_iovec_s {
   uint8_t *base;
