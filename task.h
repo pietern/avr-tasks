@@ -5,9 +5,25 @@
 
 #include "queue.h"
 
+#ifndef F_CPU
+#error "Define F_CPU"
+#endif
+
 #define MS_PER_TICK 2
-#define US_PER_TICK 2000
-#define US_PER_MICROTICK 16
+#define US_PER_TICK (1000 * MS_PER_TICK)
+#define US_PER_COUNT (US_PER_TICK / COUNTS_PER_TICK)
+
+#if F_CPU == 16000000L
+// Clock select: prescaler = 1/256
+#define _TCCR0B (_BV(CS02))
+#define COUNTS_PER_TICK ((F_CPU / 256) / (1000 / MS_PER_TICK))
+#elif F_CPU == 8000000L
+// Clock select: prescaler = 1/64
+#define _TCCR0B (_BV(CS01) | _BV(CS00))
+#define COUNTS_PER_TICK ((F_CPU / 64) / (1000 / MS_PER_TICK))
+#else
+#error "Unsupported F_CPU"
+#endif
 
 typedef void (*task_fn)(void *);
 

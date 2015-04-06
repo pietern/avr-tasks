@@ -367,7 +367,6 @@ ISR(TIMER0_COMPA_vect, ISR_NAKED) {
 
 // Use TIMER0 for OS ticks.
 // Configure it to trigger a Output Compare Register interrupt every 2ms.
-// Assumes F_CPU == 16Mhz.
 static void task__setup_timer() {
   // Waveform generation mode: CTC
   // WGM02: 0
@@ -375,15 +374,11 @@ static void task__setup_timer() {
   // WGM00: 0
   TCCR0A = _BV(WGM01);
 
-  // Clock select: prescaler = 1/256
-  // CS02: 1
-  // CS01: 0
-  // CS00: 0
-  TCCR0B = _BV(CS02);
+  // Clock select (see task.h)
+  TCCR0B = _TCCR0B;
 
   // Output compare register
-  // 0.002 * (F_CPU / 256) - 1
-  OCR0A = 124;
+  OCR0A = COUNTS_PER_TICK - 1;
 }
 
 static void task__idle(void *unused) {
@@ -503,5 +498,5 @@ uint8_t task_ms(void) {
 // Return microsecond counter value.
 // This value overflows every 65536 microseconds.
 uint16_t task_us(void) {
-  return (_task_us + (TCNT0 * US_PER_MICROTICK));
+  return (_task_us + (TCNT0 * US_PER_COUNT));
 }
