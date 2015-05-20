@@ -59,16 +59,16 @@ void hmc5883l_task(void *unused) {
   FILE uart = FDEV_SETUP_STREAM(uart_putc, uart_getc, _FDEV_SETUP_RW);
 
   while (1) {
-    uint8_t t1, t2, ms;
+    uint16_t t1, t2, msec;
 
-    t1 = task_ms();
+    t1 = task_msec();
     hmc5883l_measure(&uart);
-    t2 = task_ms();
+    t2 = task_msec();
 
     // This subtraction underflows if t1 > t2, but yields the right result.
     // Use measured time to space calls to "hmc5883l_measure" 100ms apart.
-    ms = t2 - t1;
-    task_sleep(100 - ms);
+    msec = t2 - t1;
+    task_sleep(100 - msec);
   }
 }
 

@@ -62,10 +62,28 @@ void task_wakeup(task_t *t);
 // Sleep current task for specified number of milliseconds.
 void task_sleep(uint16_t ms);
 
-// Return millisecond counter value.
-uint8_t task_ms(void);
+// Only count seconds if specified
+#if TASK_COUNT_SEC
+#ifndef TASK_SEC_T
+#define TASK_SEC_T uint16_t
+#endif
+TASK_SEC_T task_sec(void);
+#endif
 
-// Return microsecond counter value.
-uint16_t task_us(void);
+// Only count milliseconds if specified
+#if TASK_COUNT_MSEC
+#ifndef TASK_MSEC_T
+#define TASK_MSEC_T uint16_t
+#endif
+TASK_MSEC_T task_msec(void);
+#endif
+
+// Only count microseconds if specified
+#if TASK_COUNT_USEC
+#ifndef TASK_USEC_T
+#define TASK_USEC_T uint16_t
+#endif
+TASK_USEC_T task_usec(void);
+#endif
 
 #endif

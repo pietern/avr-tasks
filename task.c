@@ -23,11 +23,32 @@ static QUEUE _tasks__suspended;
 // Holds tasks that called "task_sleep".
 static QUEUE _tasks__sleeping;
 
-// Millisecond counter maintained by the task timer.
-static uint8_t _task_ms = 0;
+#if TASK_COUNT_SEC
+static TASK_SEC_T _task_sec = 0;
 
-// Microsecond counter maintained by the task timer.
-static uint16_t _task_us = 0;
+// Counts down until a second has passed.
+static uint16_t _task_sec_countdown;
+
+TASK_SEC_T task_sec(void) {
+  return _task_sec;
+}
+#endif
+
+#if TASK_COUNT_MSEC
+static TASK_MSEC_T _task_msec = 0;
+
+TASK_MSEC_T task_msec(void) {
+  return _task_msec;
+}
+#endif
+
+#if TASK_COUNT_USEC
+static TASK_USEC_T _task_usec = 0;
+
+TASK_USEC_T task_usec(void) {
+  return (_task_usec + (TCNT0 * US_PER_COUNT));
+}
+#endif
 
 // Push a task's context onto its own stack.
 static inline void task__push(void) __attribute__ ((always_inline));
@@ -320,8 +341,20 @@ static void task__tick() {
   QUEUE *q, *r;
   task_t *t;
 
-  _task_ms += MS_PER_TICK;
-  _task_us += US_PER_TICK;
+#if TASK_COUNT_SEC
+  if (--_task_sec_countdown == 0) {
+    _task_sec++;
+    _task_sec_countdown = 1000 / MS_PER_TICK;
+  }
+#endif
+
+#if TASK_COUNT_MSEC
+  _task_msec += MS_PER_TICK;
+#endif
+
+#if TASK_COUNT_USEC
+  _task_usec += US_PER_TICK;
+#endif
 
   q = QUEUE_NEXT(&_tasks__sleeping);
   r = 0;
@@ -415,6 +448,19 @@ void task_init(void) {
 
   task__setup_timer();
   task__create_idle_task();
+
+#if TASK_COUNT_SEC
+  _task_sec = 0;
+  _task_sec_countdown = 1000 / MS_PER_TICK;
+#endif
+
+#if TASK_COUNT_MSEC
+  _task_msec = 0;
+#endif
+
+#if TASK_COUNT_USEC
+  _task_usec = 0;
+#endif
 }
 
 // Call this function to start task execution.
@@ -487,16 +533,4 @@ void task_wakeup(task_t *t) {
 void task_sleep(uint16_t ms) {
   _task__current->delay = ms / MS_PER_TICK;
   task__suspend(&_tasks__sleeping);
-}
-
-// Return millisecond counter value.
-// This value overflows every 256 milliseconds.
-uint8_t task_ms(void) {
-  return _task_ms;
-}
-
-// Return microsecond counter value.
-// This value overflows every 65536 microseconds.
-uint16_t task_us(void) {
-  return (_task_us + (TCNT0 * US_PER_COUNT));
 }

@@ -1,7 +1,7 @@
 MCU_TARGET     = atmega328
 OPTIMIZE       = -O2
 
-DEFS           = -DF_CPU=16000000
+DEFS           = -DF_CPU=16000000 -DTASK_COUNT_SEC -DTASK_COUNT_MSEC -DTASK_COUNT_USEC
 LIBS           =
 
 # You should not have to change anything below here.
