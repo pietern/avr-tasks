@@ -68,6 +68,7 @@ void task_sleep(uint16_t ms);
 #define TASK_SEC_T uint16_t
 #endif
 TASK_SEC_T task_sec(void);
+void task_set_sec(TASK_SEC_T);
 #endif
 
 // Only count milliseconds if specified
@@ -76,6 +77,7 @@ TASK_SEC_T task_sec(void);
 #define TASK_MSEC_T uint16_t
 #endif
 TASK_MSEC_T task_msec(void);
+void task_set_msec(TASK_MSEC_T);
 #endif
 
 // Only count microseconds if specified
@@ -84,6 +86,7 @@ TASK_MSEC_T task_msec(void);
 #define TASK_USEC_T uint16_t
 #endif
 TASK_USEC_T task_usec(void);
+void task_set_usec(TASK_USEC_T);
 #endif
 
 #endif

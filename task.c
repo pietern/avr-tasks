@@ -32,7 +32,16 @@ static uint16_t _task_sec_countdown;
 TASK_SEC_T task_sec(void) {
   return _task_sec;
 }
-#endif
+
+void task_set_sec(TASK_SEC_T t) {
+  uint8_t sreg = SREG;
+
+  cli();
+  _task_sec = t;
+  _task_sec_countdown = 1000 / MS_PER_TICK;
+  SREG = sreg;
+}
+#endif // TASK_COUNT_SEC
 
 #if TASK_COUNT_MSEC
 static TASK_MSEC_T _task_msec = 0;
@@ -40,7 +49,15 @@ static TASK_MSEC_T _task_msec = 0;
 TASK_MSEC_T task_msec(void) {
   return _task_msec;
 }
-#endif
+
+void task_set_msec(TASK_MSEC_T t) {
+  uint8_t sreg = SREG;
+
+  cli();
+  _task_msec = t;
+  SREG = sreg;
+}
+#endif // TASK_COUNT_MSEC
 
 #if TASK_COUNT_USEC
 static TASK_USEC_T _task_usec = 0;
@@ -48,7 +65,15 @@ static TASK_USEC_T _task_usec = 0;
 TASK_USEC_T task_usec(void) {
   return (_task_usec + (TCNT0 * US_PER_COUNT));
 }
-#endif
+
+void task_set_usec(TASK_USEC_T t) {
+  uint8_t sreg = SREG;
+
+  cli();
+  _task_usec = t;
+  SREG = sreg;
+}
+#endif // TASK_COUNT_USEC
 
 // Push a task's context onto its own stack.
 static inline void task__push(void) __attribute__ ((always_inline));
@@ -450,16 +475,15 @@ void task_init(void) {
   task__create_idle_task();
 
 #if TASK_COUNT_SEC
-  _task_sec = 0;
-  _task_sec_countdown = 1000 / MS_PER_TICK;
+  task_set_sec(0);
 #endif
 
 #if TASK_COUNT_MSEC
-  _task_msec = 0;
+  task_set_msec(0);
 #endif
 
 #if TASK_COUNT_USEC
-  _task_usec = 0;
+  task_set_usec(0);
 #endif
 }
 
