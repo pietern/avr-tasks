@@ -52,7 +52,7 @@ void hmc5883l_measure(FILE *uart) {
   axis[2 /* Z */] = (data[2] << 8) | data[3];
   axis[1 /* Y */] = (data[4] << 8) | data[5];
 
-  fprintf(uart, "X: %5d, Y: %5d, Z: %5d\n", axis[0], axis[1], axis[2]);
+  fprintf(uart, "X: %5d, Y: %5d, Z: %5d\r\n", axis[0], axis[1], axis[2]);
 }
 
 void hmc5883l_task(void *unused) {
