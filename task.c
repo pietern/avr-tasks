@@ -267,8 +267,14 @@ static void * task__internal_initialize(void *sp, task_fn fn, void *data) {
 
     // Store location of task body as return address, such that
     // executing "ret" after "context_restore" will jump to it.
-    "push %A2\n" // low
-    "push %B2\n" // high
+    "push %A2\n"
+    "push %B2\n"
+#ifdef __AVR_3_BYTE_PC__
+    // Push extra zero, assuming the task function is not located
+    // in high program memory (>128KiB).
+    "clr __tmp_reg__\n"
+    "push __tmp_reg__\n"
+#endif
 
     // Store r0
     "ldi r19, 0\n" // r19 can be clobbered
