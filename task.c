@@ -242,18 +242,11 @@ static void task__pop(void) {
 // Internal task initializer.
 // Written in assembly so that it can mangle the stack pointer to initialize
 // the task's stack. Note that interrupts are temporarily disabled.
-static void * task__internal_initialize(void *sp, task_fn fn, void *data) {
+static void *task__internal_initialize(void *sp, task_fn fn, void *data) {
   void *result;
 
   asm volatile(
-    // Arguments
-    // - r24:r25 -- Top of new task's stack
-    // - r22:r23 -- Task function pointer
-    // - r20:r21 -- Task argument
-    // Returns:
-    // - r24:r25 -- Top of new task's stack
-
-    // About to overwrite the stack pointer// disable interrupts
+    // About to overwrite the stack pointer, disable interrupts
     "in r18, 0x3f\n" // r18 can be clobbered
     "cli\n"
 
