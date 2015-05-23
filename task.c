@@ -3,13 +3,9 @@
 
 #include "task.h"
 
-// Pointer to current task (user or idle).
+// Pointer to current task.
 // May only be changed by schedule routine.
 static task_t *_task__current = 0;
-
-// Pointer to idle task.
-// This task is scheduled when no other task can be scheduled.
-static task_t *_task__idle = 0;
 
 // Queue with runnable tasks.
 // Holds tasks that may be scheduled immediately.
@@ -86,6 +82,34 @@ static inline void task__push(void) {
     "cli\n"
     "push r0\n"
 
+    // Save Z register pair (so it can be used below)
+    "push r30\n"
+    "push r31\n"
+
+    // Load _task__current into Z register pair
+    "lds r30, _task__current\n" // Low
+    "lds r31, _task__current+1\n" // High
+
+    // Z=1 if (r30 | r31) == 0
+    "mov r0, r30\n"
+    "or r0, r31\n"
+
+    // Save if Z=0 (_task__current != NULL)
+    "brne 2f\n"
+
+  "1:\n"
+    // Restore Z register pair
+    "pop r31\n"
+    "pop r30\n"
+
+    // Restore status register and real r0
+    "pop r0\n"
+    "out 0x3f, r0\n"
+    "pop r0\n"
+
+    "rjmp 3f\n"
+
+  "2:\n"
     // Save general registers
     "push r1\n"
     "push r2\n"
@@ -116,20 +140,18 @@ static inline void task__push(void) {
     "push r27\n"
     "push r28\n"
     "push r29\n"
-    "push r30\n"
-    "push r31\n"
 
     // Compiler expects r1 to be zero. As this code may interrupt anything,
     // the register may temporarily hold a non-zero value.
     "clr r1\n"
 
     // Save stack pointer in current task struct
-    "lds r26, _task__current\n" // Low
-    "lds r27, _task__current+1\n" // High
     "in r0, 0x3d\n" // Low
-    "st x+, r0\n"
+    "st z+, r0\n"
     "in r0, 0x3e\n" // High
-    "st x+, r0\n"
+    "st z+, r0\n"
+
+  "3:\n"
   );
 }
 
@@ -146,8 +168,6 @@ static void task__pop(void) {
     "out 0x3e, r0\n" // High
 
     // Restore general registers
-    "pop r31\n"
-    "pop r30\n"
     "pop r29\n"
     "pop r28\n"
     "pop r27\n"
@@ -177,6 +197,10 @@ static void task__pop(void) {
     "pop r3\n"
     "pop r2\n"
     "pop r1\n"
+
+    // Restore Z register pair
+    "pop r31\n"
+    "pop r30\n"
 
     // Restore status register.
     //
@@ -256,6 +280,8 @@ static void * task__internal_initialize(void *sp, task_fn fn, void *data) {
 
     // Store general registers
     "ldi r19, 0\n"
+    "push r19\n" // r30
+    "push r19\n" // r31
     "push r19\n" // r1
     "push r19\n" // r2
     "push r19\n" // r3
@@ -288,8 +314,6 @@ static void * task__internal_initialize(void *sp, task_fn fn, void *data) {
     "push r19\n" // r27
     "push r19\n" // r28
     "push r19\n" // r29
-    "push r19\n" // r30
-    "push r19\n" // r31
 
     // Store new task's stack pointer at return register
     "in %A0, 0x3d\n"
@@ -357,7 +381,7 @@ static void task__schedule() {
   }
 
   // Nothing to schedule, go to sleep.
-  _task__current = _task__idle;
+  _task__current = 0;
 
   return;
 }
@@ -399,6 +423,46 @@ static void task__tick() {
   }
 }
 
+static void task__scheduler(void) {
+  // Overwrite stack pointer to RAMEND.
+  // The task scheduler runs in its own piece of stack to prevent polluting (or
+  // even overflowing) task stacks when interrupt handlers are executed.
+  asm volatile(
+    "out 0x3d, %A0\n"
+    "out 0x3e, %B0\n"
+    :: "x" (RAMEND)
+  );
+
+  for (;;) {
+    task__schedule();
+
+    // Run scheduled task, if any.
+    if (_task__current != 0x0) {
+      // This function doesn't continue execution beyond this point.
+      // The task__pop function RETs back into the task.
+      task__pop();
+    }
+
+    // The processor wakes up from sleep to handle interrupts.
+    //
+    // 1. It is woken up by the task timer interrupt and the interrupt handler
+    // jumps to this function (i.e. this function doesn't continue execution
+    // beyond the sleep instruction).
+    //
+    // 2. It is woken up by another interrupt, the sleep instruction returns
+    // after the handler has executed, and this function continues execution.
+    //
+
+    sei();
+    asm volatile ("sleep");
+    cli();
+  }
+}
+
+static void task__jmp_scheduler(void) {
+  asm volatile ("ijmp" :: "z" (task__scheduler));
+}
+
 // Must be naked to avoid mangling the stack.
 static void task__yield_from_timer(void) __attribute__((naked));
 static void task__yield_from_timer(void) {
@@ -406,9 +470,7 @@ static void task__yield_from_timer(void) {
 
   task__tick();
 
-  task__schedule();
-
-  task__pop();
+  task__jmp_scheduler();
 }
 
 // ISR can be naked because the first thing it does is push the current task.
@@ -439,40 +501,12 @@ static void task__setup_timer() {
   OCR0A = COUNTS_PER_TICK - 1;
 }
 
-static void task__idle(void *unused) {
-  while (1) {
-    // ZZZzzz...
-    asm volatile ("sleep");
-
-    // The processor wakes up from sleep to handle interrupts. In the case of
-    // this interrupt being the task timer, the task scheduler will try and
-    // schedule the next runnable task. In the case of some other interrupt
-    // firing, it is possible that the handler wakes up a suspended task. If
-    // the idle task only loops on the sleep instruction, this newly woken up
-    // task would have to wait until the next timer tick to be scheduled.
-    //
-    // To allow a newly woken up task to be run as soon as possible, we check
-    // if there are any runnable tasks here, and yield if so.
-    //
-    cli();
-    if (!QUEUE_EMPTY(&_tasks__runnable)) {
-      task_yield();
-    }
-    sei();
-  }
-}
-
-static void task__create_idle_task() {
-  _task__idle = task__internal_create(task__idle, 0);
-}
-
 void task_init(void) {
   QUEUE_INIT(&_tasks__runnable);
   QUEUE_INIT(&_tasks__suspended);
   QUEUE_INIT(&_tasks__sleeping);
 
   task__setup_timer();
-  task__create_idle_task();
 
 #if TASK_COUNT_SEC
   task_set_sec(0);
@@ -497,9 +531,7 @@ void task_start(void) {
   TIMSK0 |= _BV(OCIE0A);
 
   // Schedule next task to run.
-  task__schedule();
-
-  task__pop();
+  task__jmp_scheduler();
 }
 
 // Yield execution to any other schedulable task.
@@ -507,9 +539,7 @@ void task_yield(void) __attribute__((naked));
 void task_yield(void) {
   task__push();
 
-  task__schedule();
-
-  task__pop();
+  task__jmp_scheduler();
 }
 
 // Return pointer to current task.
