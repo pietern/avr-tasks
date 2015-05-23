@@ -364,28 +364,6 @@ task_t *task_create(task_fn fn, void *data) {
   return t;
 }
 
-static void task__schedule() {
-  QUEUE *q;
-  task_t *t;
-
-  QUEUE_FOREACH(q, &_tasks__runnable) {
-    t = QUEUE_DATA(q, task_t, member);
-
-    // Make [head..q] the new tail, so that q->next can be scheduled next.
-    QUEUE_ROTATE(&_tasks__runnable, q);
-
-    // Task t can be scheduled.
-    _task__current = t;
-
-    return;
-  }
-
-  // Nothing to schedule, go to sleep.
-  _task__current = 0;
-
-  return;
-}
-
 static void task__tick() {
   QUEUE *q, *r;
   task_t *t;
@@ -434,10 +412,19 @@ static void task__scheduler(void) {
   );
 
   for (;;) {
-    task__schedule();
+    QUEUE *q;
 
-    // Run scheduled task, if any.
-    if (_task__current != 0x0) {
+    // No task is currently running.
+    _task__current = 0;
+
+    // Find task to schedule, if any.
+    QUEUE_FOREACH(q, &_tasks__runnable) {
+      // The first runnable task can be scheduled.
+      _task__current = QUEUE_DATA(q, task_t, member);
+
+      // Make [head..q] the new tail, so that q->next can be scheduled next.
+      QUEUE_ROTATE(&_tasks__runnable, q);
+
       // This function doesn't continue execution beyond this point.
       // The task__pop function RETs back into the task.
       task__pop();
