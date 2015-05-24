@@ -19,78 +19,83 @@ static uint8_t rx_count;
 
 // Register descriptions as documented in the ATmega328p datasheet.
 //
-// Bits in UCSR0A, USART Control and Status Register 0A
-// RXC0:  USART Receive Complete
-// TXC0:  USART Transmit Complete
-// UDRE0: USART Data Register Empty
-// FE0:   Frame Error
-// DOR0:  Data Overrun
-// UPE0:  USART Parity Error
-// U2X0:  Double the USART Transmission Speed
-// MPCM0: Multi-processor Communication Mode
+// Bits in UCSR@A, USART Control and Status Register @A
+// RXC@:  USART Receive Complete
+// TXC@:  USART Transmit Complete
+// UDRE@: USART Data Register Empty
+// FE@:   Frame Error
+// DOR@:  Data Overrun
+// UPE@:  USART Parity Error
+// U2X@:  Double the USART Transmission Speed
+// MPCM@: Multi-processor Communication Mode
 //
-// Bits in UCSR0B, USART Control and Status Register 0B
-// RXCIE0: RX Complete Interrupt Enable
-// TXCIE0: TX Complete Interrupt Enable
-// UDRIE0: USART Data Register Empty Interrupt Enable
-// RXEN0:  Receiver Enable
-// TXEN0:  Transmitter Enable
-// UCSZ02: Character Size bit 2
-// RXB80:  Receive Data Bit 8
-// TXB80:  Transmit Data Bit 8
+// Bits in UCSR@B, USART Control and Status Register @B
+// RXCIE@: RX Complete Interrupt Enable
+// TXCIE@: TX Complete Interrupt Enable
+// UDRIE@: USART Data Register Empty Interrupt Enable
+// RXEN@:  Receiver Enable
+// TXEN@:  Transmitter Enable
+// UCSZ@2: Character Size bit 2
+// RXB8@:  Receive Data Bit 8
+// TXB8@:  Transmit Data Bit 8
 //
-// Bits in UCSR0C, USART Control and Status Register 0C
-// UMSEL01: USART Mode Select bit 1
-// UMSEL00: USART Mode Select bit 0
-// UPM01:   Parity Mode bit 1
-// UPM00:   Parity Mode bit 0
-// USBS0:   Stop Bit Select
-// UCSZ01:  Character Size bit 1
-// UCSZ00:  Character Size bit 0
-// UCPOL0:  Clock Polarity
+// Bits in UCSR0C, USART Control and Status Register @C
+// UMSEL@1: USART Mode Select bit 1
+// UMSEL@0: USART Mode Select bit 0
+// UPM@1:   Parity Mode bit 1
+// UPM@0:   Parity Mode bit 0
+// USBS@:   Stop Bit Select
+// UCSZ@1:  Character Size bit 1
+// UCSZ@0:  Character Size bit 0
+// UCPOL@:  Clock Polarity
 //
 
 // Some of the assignments here evaluate to 0 making them a no-op.
 // They are included as documentation.
-void uart_init(void) {
+void uart_init(uint16_t ubrr, uint8_t x2) {
   uint8_t sreg;
 
   sreg = SREG;
   cli();
 
-  UBRR0 = (F_CPU / (16UL * UART_BAUD)) - 1;
+  UBRR@ = ubrr;
 
-  UCSR0A = 0;
-  UCSR0B = 0;
-  UCSR0C = 0;
+  UCSR@A = 0;
+  UCSR@B = 0;
+  UCSR@C = 0;
+
+  // Double the transmission speed
+  if (x2) {
+    UCSR@A |= _B(U2X@, 1);
+  }
 
   // Asynchronous USART
-  UCSR0C |= _B(UMSEL01, 0) | _B(UMSEL00, 0);
+  UCSR@C |= _B(UMSEL@1, 0) | _B(UMSEL@0, 0);
 
   // 8 bit character size
-  UCSR0B |= _B(UCSZ02, 0);
-  UCSR0C |= _B(UCSZ01, 1) | _B(UCSZ00, 1);
+  UCSR@B |= _B(UCSZ@2, 0);
+  UCSR@C |= _B(UCSZ@1, 1) | _B(UCSZ@0, 1);
 
   // No parity bit
-  UCSR0C |= _B(UPM01, 0) | _B(UPM00, 0);
+  UCSR@C |= _B(UPM@1, 0) | _B(UPM@0, 0);
 
   // 1 stop bit
-  UCSR0C |= _B(USBS0, 0);
+  UCSR@C |= _B(USBS@, 0);
 
   // Enable RX/TX
-  UCSR0B |= _B(RXEN0, 1) | _B(TXEN0, 1);
+  UCSR@B |= _B(RXEN@, 1) | _B(TXEN@, 1);
 
   SREG = sreg;
 }
 
 // Transmit interrupt handler.
-ISR(USART_UDRE_vect) {
-  UDR0 = tx_buf[0];
+ISR(USART@_UDRE_vect) {
+  UDR@ = tx_buf[0];
   if (--tx_count > 0) {
     tx_buf++;
   } else {
     // Disable USART Data Register Empty Interrupt
-    UCSR0B &= ~_B(UDRIE0, 1);
+    UCSR@B &= ~_B(UDRIE@, 1);
     task_wakeup(tx_task);
   }
 }
@@ -108,7 +113,7 @@ int uart_write(const void *buf, size_t count) {
 
   // Enable USART Data Register Empty Interrupt
   // It is disabled by the interrupt handler when done.
-  UCSR0B |= _B(UDRIE0, 1);
+  UCSR@B |= _B(UDRIE@, 1);
 
   // Task is woken up by the interrupt handler when done.
   task_suspend(NULL);
@@ -119,13 +124,13 @@ int uart_write(const void *buf, size_t count) {
 }
 
 // Receive interrupt handler.
-ISR(USART_RX_vect) {
-  rx_buf[0] = UDR0;
+ISR(USART@_RX_vect) {
+  rx_buf[0] = UDR@;
   if (--rx_count > 0) {
     rx_buf++;
   } else {
     // Disable USART RX Complete Interrupt
-    UCSR0B &= ~_B(RXCIE0, 1);
+    UCSR@B &= ~_B(RXCIE@, 1);
     task_wakeup(rx_task);
   }
 }
@@ -143,7 +148,7 @@ int uart_read(void *buf, size_t count) {
 
   // Enable USART RX Complete Interrupt
   // It is disabled by the interrupt handler when done.
-  UCSR0B |= _B(RXCIE0, 1);
+  UCSR@B |= _B(RXCIE@, 1);
 
   // Task is woken up by the interrupt handler when done.
   task_suspend(NULL);

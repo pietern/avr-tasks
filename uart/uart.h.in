@@ -1,11 +1,10 @@
 #ifndef _UART_H
 #define _UART_H
 
+#include <stdint.h>
 #include <stdio.h>
 
-#define UART_BAUD 9600
-
-void uart_init(void);
+void uart_init(uint16_t ubrr, uint8_t x2);
 
 int uart_write(const void *buf, size_t count);
 
