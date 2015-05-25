@@ -15,6 +15,21 @@ static task_t *rx_task = NULL;
 static uint8_t *rx_buf;
 static uint8_t rx_count;
 
+#ifdef UART_COUNT_TX_BYTES
+uint16_t uart_tx_bytes = 0;
+#endif
+
+#ifdef UART_COUNT_RX_BYTES
+uint16_t uart_rx_bytes = 0;
+#endif
+
+#ifdef UART_COUNT_RX_ERRORS
+uint8_t uart_rx_fe = 0;
+uint8_t uart_rx_dor = 0;
+uint8_t uart_rx_pe = 0;
+uint8_t uart_rx_bdor = 0;
+#endif
+
 #define PRIV_BUF_SIZE (1<<4)
 #define PRIV_BUF_SIZE_MASK ((PRIV_BUF_SIZE)-1)
 #define PRIV_BUF_VAL(var) ((var) & PRIV_BUF_SIZE_MASK)
@@ -109,6 +124,11 @@ void uart_init(uint16_t ubrr, uint8_t x2) {
 
 // Transmit interrupt handler.
 ISR(USART@_UDRE_vect) {
+#ifdef UART_COUNT_TX_BYTES
+  // The TX counter should be incremented from the TX complete interrupt
+  // handler, but it is overkill to have a handler just for this.
+  uart_tx_bytes++;
+#endif
   UDR@ = tx_buf[0];
   if (--tx_count > 0) {
     tx_buf++;
@@ -144,6 +164,30 @@ int uart_write(const void *buf, size_t count) {
 
 // Receive interrupt handler.
 ISR(USART@_RX_vect) {
+  // Check for receive errors.
+  if (UCSR@A & (_BV(FE@) | _BV(DOR@) | _BV(UPE@))) {
+#ifdef UART_COUNT_RX_ERRORS
+    if (UCSR@A & _BV(DOR@)) {
+      uart_rx_fe++;
+    }
+    if (UCSR@A & _BV(DOR@)) {
+      uart_rx_dor++;
+    }
+    if (UCSR@A & _BV(UPE@)) {
+      uart_rx_pe++;
+    }
+#endif
+
+    // Read data register to acknowledge interrupt.
+    uint8_t tmp __attribute__((unused)) = UDR@;
+    return;
+  }
+
+#ifdef UART_COUNT_RX_BYTES
+  // No errors; byte was successfully read.
+  uart_rx_bytes++;
+#endif
+
   // Read into private buffer if external read buffer is not set.
   if (rx_buf == NULL) {
     rx_priv_buf[PRIV_BUF_VAL(rx_priv_ppos)] = UDR@;
@@ -152,6 +196,9 @@ ISR(USART@_RX_vect) {
     // Advance consumer position if producer caught up.
     if (PRIV_BUF_VAL(rx_priv_ppos) == PRIV_BUF_VAL(rx_priv_cpos)) {
       PRIV_BUF_INCR(rx_priv_cpos);
+#ifdef UART_COUNT_RX_ERRORS
+      uart_rx_bdor++;
+#endif
     }
 
     return;
