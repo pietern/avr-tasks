@@ -70,7 +70,7 @@ static uint8_t rx_priv_cpos; // Consumer
 // RXB8@:  Receive Data Bit 8
 // TXB8@:  Transmit Data Bit 8
 //
-// Bits in UCSR0C, USART Control and Status Register @C
+// Bits in UCSR@C, USART Control and Status Register @C
 // UMSEL@1: USART Mode Select bit 1
 // UMSEL@0: USART Mode Select bit 0
 // UPM@1:   Parity Mode bit 1
