@@ -92,6 +92,7 @@ static int8_t i2c__io(uint8_t address, struct i2c_iovec_s *iov, uint8_t iovcnt) 
   SREG = sreg;
 
   if (i2c_op.error) {
+    i2c_close();
     return -1;
   }
 
