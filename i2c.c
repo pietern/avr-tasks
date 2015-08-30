@@ -7,7 +7,7 @@
 #include "task.h"
 
 struct i2c_op_s {
-  uint8_t error;
+  int8_t error;
   uint8_t address;
   struct i2c_iovec_s *iov;
   uint8_t iovcnt;
@@ -93,7 +93,7 @@ static int8_t i2c__io(uint8_t address, struct i2c_iovec_s *iov, uint8_t iovcnt) 
 
   if (i2c_op.error) {
     i2c_close();
-    return -1;
+    return i2c_op.error;
   }
 
   return 0;
@@ -159,7 +159,7 @@ ISR(TWI_vect, ISR_BLOCK) {
     // Arbitration lost in SLA+R or NOT ACK bit.
     case TW_MR_ARB_LOST:
 #if I2C_ARBITRATION_LOST_IS_ERROR
-      i2c_op.error = 1;
+      i2c_op.error = I2C_ERR_MR_ARB_LOST;
       goto done;
 #else
       // A START condition will be transmitted when the bus becomes free.
@@ -179,7 +179,7 @@ ISR(TWI_vect, ISR_BLOCK) {
 
     // SLA+R has been transmitted; NOT ACK has been received.
     case TW_MR_SLA_NACK:
-      i2c_op.error = 1;
+      i2c_op.error = I2C_ERR_MR_SLA_NACK;
       goto done;
 
     // Data byte has been received; ACK has been returned.
@@ -207,7 +207,7 @@ ISR(TWI_vect, ISR_BLOCK) {
 
     default:
       // Don't know what to do now...
-      i2c_op.error = 1;
+      i2c_op.error = I2C_ERR_MR_UNKNOWN;
       goto done;
     }
   } else {
@@ -225,7 +225,7 @@ ISR(TWI_vect, ISR_BLOCK) {
     // Arbitration lost in SLA+W or data bytes.
     case TW_MT_ARB_LOST:
 #if I2C_ARBITRATION_LOST_IS_ERROR
-      i2c_op.error = 1;
+      i2c_op.error = I2C_ERR_MT_ARB_LOST;
       goto done;
 #else
       // A START condition will be transmitted when the bus becomes free.
@@ -243,7 +243,7 @@ ISR(TWI_vect, ISR_BLOCK) {
 
     // SLA+W has been transmitted; NOT ACK has been received.
     case TW_MT_SLA_NACK:
-      i2c_op.error = 1;
+      i2c_op.error = I2C_ERR_MT_SLA_NACK;
       goto done;
 
     // Data byte has been transmitted; ACK has been received.
@@ -273,12 +273,12 @@ ISR(TWI_vect, ISR_BLOCK) {
       }
 
       // There were more bytes left to transmit!
-      i2c_op.error = 1;
+      i2c_op.error = I2C_ERR_MT_MORE_TO_XMIT;
       goto done;
 
     default:
       // Don't know what to do now...
-      i2c_op.error = 1;
+      i2c_op.error = I2C_ERR_MT_UNKNOWN;
       goto done;
     }
   }

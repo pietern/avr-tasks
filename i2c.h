@@ -13,6 +13,15 @@
 #define I2C_ARBITRATION_LOST_IS_ERROR 1
 #endif
 
+#define I2C_ERR_MR_UNKNOWN -10
+#define I2C_ERR_MR_ARB_LOST -11
+#define I2C_ERR_MR_SLA_NACK -12
+
+#define I2C_ERR_MT_UNKNOWN -20
+#define I2C_ERR_MT_ARB_LOST -21
+#define I2C_ERR_MT_SLA_NACK -22
+#define I2C_ERR_MT_MORE_TO_XMIT -23
+
 struct i2c_iovec_s {
   uint8_t *base;
   uint8_t len;
