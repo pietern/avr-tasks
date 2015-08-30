@@ -143,9 +143,8 @@ ISR(TWI_vect, ISR_BLOCK) {
 
   status = TW_STATUS;
 
-  switch (i2c_op.address & 0x1) {
-  case TW_READ:
-    // Master Receiver mode.
+  if ((i2c_op.address & 0x1) == TW_READ) {
+    // TW_READ: Master Receiver mode.
     switch (status) {
 
     // A START condition has been transmitted.
@@ -154,13 +153,13 @@ ISR(TWI_vect, ISR_BLOCK) {
     case TW_REP_START:
       TWDR = i2c_op.address;
       TWCR = TWCR_ACK;
-      return;
+      break;
 
     // Arbitration lost in SLA+R or NOT ACK bit.
     case TW_MR_ARB_LOST:
       // A START condition will be transmitted when the bus becomes free.
       TWCR = TWCR_START;
-      return;
+      break;
 
     // SLA+R has been transmitted; ACK has been received.
     case TW_MR_SLA_ACK:
@@ -170,7 +169,7 @@ ISR(TWI_vect, ISR_BLOCK) {
       } else {
         TWCR = TWCR_ACK;
       }
-      return;
+      break;
 
     // SLA+R has been transmitted; NOT ACK has been received.
     case TW_MR_SLA_NACK:
@@ -193,19 +192,15 @@ ISR(TWI_vect, ISR_BLOCK) {
       } else {
         TWCR = TWCR_ACK;
       }
-      return;
+      break;
 
     // Data byte has been received; NOT ACK has been returned.
     case TW_MR_DATA_NACK:
       i2c_op.iov[0].base[0] = TWDR;
       goto done;
     }
-
-    // Never reached, but be sure...
-    return;
-
-  case TW_WRITE:
-    // Master Transmitter mode.
+  } else {
+    // TW_WRITE: Master Transmitter mode.
     switch (status) {
 
     // A START condition has been transmitted.
@@ -214,13 +209,13 @@ ISR(TWI_vect, ISR_BLOCK) {
     case TW_REP_START:
       TWDR = i2c_op.address;
       TWCR = TWCR_DEFAULT | _BV(TWINT);
-      return;
+      break;
 
     // Arbitration lost in SLA+W or data bytes.
     case TW_MT_ARB_LOST:
       // A START condition will be transmitted when the bus becomes free.
       TWCR = TWCR_START;
-      return;
+      break;
 
     // SLA+W has been transmitted; ACK has been received.
     case TW_MT_SLA_ACK:
@@ -228,7 +223,7 @@ ISR(TWI_vect, ISR_BLOCK) {
       TWCR = TWCR_DEFAULT | _BV(TWINT);
       i2c_op.iov[0].base++;
       i2c_op.iov[0].len--;
-      return;
+      break;
 
     // SLA+W has been transmitted; NOT ACK has been received.
     case TW_MT_SLA_NACK:
@@ -249,7 +244,7 @@ ISR(TWI_vect, ISR_BLOCK) {
       TWCR = TWCR_DEFAULT | _BV(TWINT);
       i2c_op.iov[0].base++;
       i2c_op.iov[0].len--;
-      return;
+      break;
 
     // Data byte has been transmitted; NOT ACK has been received.
     case TW_MT_DATA_NACK:
@@ -265,12 +260,8 @@ ISR(TWI_vect, ISR_BLOCK) {
       i2c_op.error = 1;
       goto done;
     }
-
-    // Never reached, but be sure...
-    return;
   }
 
-  // Never reached, but be sure...
   return;
 
 done:
