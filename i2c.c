@@ -17,7 +17,7 @@ struct i2c_op_s {
 static task_t *i2c_task;
 
 // Current I2C operation.
-static struct i2c_op_s *i2c_op;
+static volatile struct i2c_op_s i2c_op;
 
 // By default, the control register is set to:
 // - TWEA: Automatically send acknowledge bit in receive mode.
@@ -71,20 +71,18 @@ void i2c_close(void) {
 
 // Prepares I2C operation and suspends task to wait for completion.
 static int8_t i2c__io(uint8_t address, struct i2c_iovec_s *iov, uint8_t iovcnt) {
-  struct i2c_op_s op;
   uint8_t sreg;
 
   sreg = SREG;
 
-  op.error = 0;
-  op.address = address;
-  op.iov = iov;
-  op.iovcnt = iovcnt;
+  i2c_op.error = 0;
+  i2c_op.address = address;
+  i2c_op.iov = iov;
+  i2c_op.iovcnt = iovcnt;
 
   cli();
 
   i2c_task = task_current();
-  i2c_op = &op;
 
   // Transmit START to kickstart operation.
   TWCR = TWCR_START;
@@ -93,7 +91,7 @@ static int8_t i2c__io(uint8_t address, struct i2c_iovec_s *iov, uint8_t iovcnt) 
 
   SREG = sreg;
 
-  if (op.error) {
+  if (i2c_op.error) {
     return -1;
   }
 
@@ -145,7 +143,7 @@ ISR(TWI_vect, ISR_BLOCK) {
 
   status = TW_STATUS;
 
-  switch (i2c_op->address & 0x1) {
+  switch (i2c_op.address & 0x1) {
   case TW_READ:
     // Master Receiver mode.
     switch (status) {
@@ -154,7 +152,7 @@ ISR(TWI_vect, ISR_BLOCK) {
     case TW_START:
     // A repeated START condition has been transmitted.
     case TW_REP_START:
-      TWDR = i2c_op->address;
+      TWDR = i2c_op.address;
       TWCR = TWCR_ACK;
       return;
 
@@ -167,7 +165,7 @@ ISR(TWI_vect, ISR_BLOCK) {
     // SLA+R has been transmitted; ACK has been received.
     case TW_MR_SLA_ACK:
       // Return NACK after next byte if it is the last one.
-      if (i2c_op->iov[0].len == 1 && i2c_op->iovcnt == 1) {
+      if (i2c_op.iov[0].len == 1 && i2c_op.iovcnt == 1) {
         TWCR = TWCR_NOT_ACK;
       } else {
         TWCR = TWCR_ACK;
@@ -176,21 +174,21 @@ ISR(TWI_vect, ISR_BLOCK) {
 
     // SLA+R has been transmitted; NOT ACK has been received.
     case TW_MR_SLA_NACK:
-      i2c_op->error = 1;
+      i2c_op.error = 1;
       goto done;
 
     // Data byte has been received; ACK has been returned.
     case TW_MR_DATA_ACK:
-      i2c_op->iov[0].base[0] = TWDR;
-      i2c_op->iov[0].base++;
-      if (--i2c_op->iov[0].len == 0) {
-        i2c_op->iov++;
-        i2c_op->iovcnt--;
+      i2c_op.iov[0].base[0] = TWDR;
+      i2c_op.iov[0].base++;
+      if (--i2c_op.iov[0].len == 0) {
+        i2c_op.iov++;
+        i2c_op.iovcnt--;
         // iovcnt is > 0, or we would have run TW_MR_DATA_NACK.
       }
 
       // Return NACK after next byte if it is the last one.
-      if (i2c_op->iov[0].len == 1 && i2c_op->iovcnt == 1) {
+      if (i2c_op.iov[0].len == 1 && i2c_op.iovcnt == 1) {
         TWCR = TWCR_NOT_ACK;
       } else {
         TWCR = TWCR_ACK;
@@ -199,7 +197,7 @@ ISR(TWI_vect, ISR_BLOCK) {
 
     // Data byte has been received; NOT ACK has been returned.
     case TW_MR_DATA_NACK:
-      i2c_op->iov[0].base[0] = TWDR;
+      i2c_op.iov[0].base[0] = TWDR;
       goto done;
     }
 
@@ -214,7 +212,7 @@ ISR(TWI_vect, ISR_BLOCK) {
     case TW_START:
     // A repeated START condition has been transmitted.
     case TW_REP_START:
-      TWDR = i2c_op->address;
+      TWDR = i2c_op.address;
       TWCR = TWCR_DEFAULT | _BV(TWINT);
       return;
 
@@ -226,45 +224,45 @@ ISR(TWI_vect, ISR_BLOCK) {
 
     // SLA+W has been transmitted; ACK has been received.
     case TW_MT_SLA_ACK:
-      TWDR = i2c_op->iov[0].base[0];
+      TWDR = i2c_op.iov[0].base[0];
       TWCR = TWCR_DEFAULT | _BV(TWINT);
-      i2c_op->iov[0].base++;
-      i2c_op->iov[0].len--;
+      i2c_op.iov[0].base++;
+      i2c_op.iov[0].len--;
       return;
 
     // SLA+W has been transmitted; NOT ACK has been received.
     case TW_MT_SLA_NACK:
-      i2c_op->error = 1;
+      i2c_op.error = 1;
       goto done;
 
     // Data byte has been transmitted; ACK has been received.
     case TW_MT_DATA_ACK:
-      if (i2c_op->iov[0].len == 0) {
-        i2c_op->iov++;
-        if (--i2c_op->iovcnt == 0) {
+      if (i2c_op.iov[0].len == 0) {
+        i2c_op.iov++;
+        if (--i2c_op.iovcnt == 0) {
           // No more bytes left to transmit...
           goto done;
         }
       }
 
-      TWDR = i2c_op->iov[0].base[0];
+      TWDR = i2c_op.iov[0].base[0];
       TWCR = TWCR_DEFAULT | _BV(TWINT);
-      i2c_op->iov[0].base++;
-      i2c_op->iov[0].len--;
+      i2c_op.iov[0].base++;
+      i2c_op.iov[0].len--;
       return;
 
     // Data byte has been transmitted; NOT ACK has been received.
     case TW_MT_DATA_NACK:
-      if (i2c_op->iov[0].len == 0) {
-        i2c_op->iov++;
-        if (--i2c_op->iovcnt == 0) {
+      if (i2c_op.iov[0].len == 0) {
+        i2c_op.iov++;
+        if (--i2c_op.iovcnt == 0) {
           // No more bytes left to transmit...
           goto done;
         }
       }
 
       // There were more bytes left to transmit!
-      i2c_op->error = 1;
+      i2c_op.error = 1;
       goto done;
     }
 
