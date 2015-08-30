@@ -101,21 +101,25 @@ static int8_t i2c__io(uint8_t address, struct i2c_iovec_s *iov, uint8_t iovcnt) 
 }
 
 int8_t i2c_readv(uint8_t address, struct i2c_iovec_s *iov, uint8_t iovcnt) {
-  return i2c__io((address << 1) | TW_READ, iov, iovcnt);
+  int8_t rv = i2c__io((address << 1) | TW_READ, iov, iovcnt);
+  return rv;
 }
 
 int8_t i2c_writev(uint8_t address, struct i2c_iovec_s *iov, uint8_t iovcnt) {
-  return i2c__io((address << 1) | TW_WRITE, iov, iovcnt);
+  int8_t rv = i2c__io((address << 1) | TW_WRITE, iov, iovcnt);
+  return rv;
 }
 
 int8_t i2c_read(uint8_t address, uint8_t *buf, uint8_t len) {
   struct i2c_iovec_s iov = { buf, len };
-  return i2c_readv(address, &iov, 1);
+  int8_t rv = i2c_readv(address, &iov, 1);
+  return rv;
 }
 
 int8_t i2c_write(uint8_t address, uint8_t *buf, uint8_t len) {
   struct i2c_iovec_s iov = { buf, len };
-  return i2c_writev(address, &iov, 1);
+  int8_t rv = i2c_writev(address, &iov, 1);
+  return rv;
 }
 
 int8_t i2c_read_from(uint8_t address, uint8_t reg, uint8_t *buf, uint8_t len) {
@@ -126,12 +130,14 @@ int8_t i2c_read_from(uint8_t address, uint8_t reg, uint8_t *buf, uint8_t len) {
     return rv;
   }
 
-  return i2c_read(address, buf, len);
+  rv = i2c_read(address, buf, len);
+  return rv;
 }
 
 int8_t i2c_write_to(uint8_t address, uint8_t reg, uint8_t *buf, uint8_t len) {
   struct i2c_iovec_s iov[2] = { { &reg, 1 }, { buf, len } };
-  return i2c_writev(address, (struct i2c_iovec_s *) &iov, 2);
+  int8_t rv = i2c_writev(address, (struct i2c_iovec_s *) &iov, 2);
+  return rv;
 }
 
 ISR(TWI_vect, ISR_BLOCK) {
