@@ -199,6 +199,11 @@ ISR(TWI_vect, ISR_BLOCK) {
     case TW_MR_DATA_NACK:
       i2c_op.iov[0].base[0] = TWDR;
       goto done;
+
+    default:
+      // Don't know what to do now...
+      i2c_op.error = 1;
+      goto done;
     }
   } else {
     // TW_WRITE: Master Transmitter mode.
@@ -258,6 +263,11 @@ ISR(TWI_vect, ISR_BLOCK) {
       }
 
       // There were more bytes left to transmit!
+      i2c_op.error = 1;
+      goto done;
+
+    default:
+      // Don't know what to do now...
       i2c_op.error = 1;
       goto done;
     }
