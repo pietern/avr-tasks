@@ -158,9 +158,14 @@ ISR(TWI_vect, ISR_BLOCK) {
 
     // Arbitration lost in SLA+R or NOT ACK bit.
     case TW_MR_ARB_LOST:
+#if I2C_ARBITRATION_LOST_IS_ERROR
+      i2c_op.error = 1;
+      goto done;
+#else
       // A START condition will be transmitted when the bus becomes free.
       TWCR = TWCR_START;
       break;
+#endif
 
     // SLA+R has been transmitted; ACK has been received.
     case TW_MR_SLA_ACK:
@@ -219,9 +224,14 @@ ISR(TWI_vect, ISR_BLOCK) {
 
     // Arbitration lost in SLA+W or data bytes.
     case TW_MT_ARB_LOST:
+#if I2C_ARBITRATION_LOST_IS_ERROR
+      i2c_op.error = 1;
+      goto done;
+#else
       // A START condition will be transmitted when the bus becomes free.
       TWCR = TWCR_START;
       break;
+#endif
 
     // SLA+W has been transmitted; ACK has been received.
     case TW_MT_SLA_ACK:

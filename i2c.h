@@ -5,6 +5,14 @@
 #define I2C_FREQ 100000
 #endif
 
+// Treat arbitration loss as error.
+// This implementation cannot recover from arbitration loss because the iovec
+// is mutated. Recovery from arbitration loss means the interrupt handler must
+// reset the iovec to its state when the transaction started.
+#ifndef I2C_ARBITRATION_LOST_IS_ERROR
+#define I2C_ARBITRATION_LOST_IS_ERROR 1
+#endif
+
 struct i2c_iovec_s {
   uint8_t *base;
   uint8_t len;
