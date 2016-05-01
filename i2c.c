@@ -67,6 +67,10 @@ void i2c_open(void) {
 
 void i2c_close(void) {
   TWCR = TWCR_STOP;
+  // Stop is unset when done.. wait for that
+  while (TWCR & _BV(TWSTO)) {
+    continue;
+  }
 }
 
 // Prepares I2C operation and suspends task to wait for completion.
