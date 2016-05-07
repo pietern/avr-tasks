@@ -217,6 +217,7 @@ ISR(USART_RX_vect) {
 int uart_read(void *buf, size_t count) {
   uint8_t *bbuf = buf;
   uint8_t sreg;
+  int n = 0;
 
   sreg = SREG;
   cli();
@@ -228,6 +229,7 @@ int uart_read(void *buf, size_t count) {
 
     bbuf++;
     count--;
+    n++;
   }
 
   // Wait for interrupt handler to populate remaining bytes.
@@ -235,14 +237,37 @@ int uart_read(void *buf, size_t count) {
     rx_task = task_current();
     rx_buf = bbuf;
     rx_count = count;
+    n += count;
 
     // Task is woken up by the interrupt handler when done.
     task_suspend(NULL);
   }
 
   SREG = sreg;
+  return n;
+}
 
-  return count;
+// Read data from read buffer.
+int uart_read_nonblock(void *buf, size_t count) {
+    uint8_t *bbuf = buf;
+    uint8_t sreg;
+    int n = 0;
+
+    sreg = SREG;
+    cli();
+
+    // Read from private receive buffer if non-empty.
+    while (count && rx_priv_cpos != rx_priv_ppos) {
+        bbuf[0] = rx_priv_buf[PRIV_BUF_VAL(rx_priv_cpos)];
+        PRIV_BUF_INCR(rx_priv_cpos);
+
+        bbuf++;
+        count--;
+        n++;
+    }
+
+    SREG = sreg;
+    return n;
 }
 
 // Write character to UART.
